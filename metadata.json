@@ -1,0 +1,8 @@
+{
+  "name": "CampusPilot AI",
+  "description": "A community-powered academic intelligence platform that transforms raw peer study resources, previous year papers, and custom notes into actionable exam predictions and mock study blueprints.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
