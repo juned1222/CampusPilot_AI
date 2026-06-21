@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import DashboardOverview from './components/DashboardOverview';
@@ -16,9 +16,68 @@ import CodingPlacement from './components/CodingPlacement';
 import Predictor from './components/Predictor';
 import ContributionSystem from './components/ContributionSystem';
 import CompanionChatbot from './components/CompanionChatbot';
+import LoginPage from './components/LoginPage';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('overview');
+  
+  // Dynamic light/dark theme preference state
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('campuspilot_theme');
+      return (saved as 'light' | 'dark') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    } else {
+      root.classList.remove('light');
+      root.classList.add('dark');
+    }
+    try {
+      localStorage.setItem('campuspilot_theme', theme);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
+  
+  // User Authentication state
+  const [user, setUser] = useState<{name: string; email: string; phone?: string; avatar: string} | null>(() => {
+    try {
+      const saved = localStorage.getItem('campuspilot_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleLogin = (newUser: { name: string; email: string; phone?: string; avatar: string }) => {
+    setUser(newUser);
+    try {
+      localStorage.setItem('campuspilot_user', JSON.stringify(newUser));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    try {
+      localStorage.removeItem('campuspilot_user');
+    } catch (e) {
+      console.error(e);
+    }
+  };
   
   // Shared academic states
   const [selectedSubjectCode, setSelectedSubjectCode] = useState<string>('BT101');
@@ -51,6 +110,10 @@ export default function App() {
     });
   };
 
+  if (!user) {
+    return <LoginPage onLoginSuccess={handleLogin} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500/30 selection:text-indigo-200 antialiased font-sans">
       {/* Header section (logo, gamification rank summary and global smart search) */}
@@ -61,6 +124,10 @@ export default function App() {
         setSelectedSubjectForViva={setSelectedSubjectForViva}
         userPoints={userPoints}
         userRank={userRank}
+        user={user}
+        onLogout={handleLogout}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Primary layout container */}

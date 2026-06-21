@@ -11,26 +11,27 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// Initialize Gemini API
-let ai: GoogleGenAI | null = null;
-const API_KEY = process.env.GEMINI_API_KEY;
-
-if (API_KEY) {
+// Helper to lazily retrieve and configure the Gemini API client
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    return null;
+  }
+  
   try {
-    ai = new GoogleGenAI({
-      apiKey: API_KEY,
+    return new GoogleGenAI({
+      apiKey: apiKey,
+      apiVersion: "v1beta",
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
         }
       }
     });
-    console.log("Gemini API Client successfully initialized.");
   } catch (error) {
-    console.error("Failed to initialize Gemini API Client:", error);
+    console.error("Failed to dynamically initialize Gemini API Client:", error);
+    return null;
   }
-} else {
-  console.log("No GEMINI_API_KEY found. Running in high-fidelity Simulated Mind mode.");
 }
 
 // Global System Prompt for CampusPilot AI Academic Mind
@@ -62,7 +63,8 @@ app.post("/api/smart-search", async (req, res) => {
     searchCategory = "coding";
   }
 
-  if (ai) {
+  const aiClient = getGeminiClient();
+  if (aiClient) {
     try {
       const prompt = `Student query: "${query}"
 Category detected: ${searchCategory}.
@@ -76,7 +78,7 @@ Generate an AI-powered smart search guidance block. Return a JSON object matchin
   "expectedQuestions": ["Expected Exam Question 1", "Expected Exam Question 2"]
 }`;
 
-      const response = await ai.models.generateContent({
+      const response = await aiClient.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
@@ -201,7 +203,8 @@ app.post("/api/exam-emergency", async (req, res) => {
   const hours = parseInt(availableHours) || 8;
   const targetGoal = goal || "passing";
 
-  if (ai) {
+  const aiClient = getGeminiClient();
+  if (aiClient) {
     try {
       const prompt = `Generate a rigorous Emergency Escape Study Strategy.
 Subject Code: ${subjectCode}
@@ -224,7 +227,7 @@ Generate a JSON object matching this schema:
   "topperStrategy": "How to exceed and get A+ grade in minimum time"
 }`;
 
-      const response = await ai.models.generateContent({
+      const response = await aiClient.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
@@ -367,7 +370,8 @@ app.post("/api/viva-examiner", async (req, res) => {
 
   const history = questionHistory || [];
 
-  if (ai) {
+  const aiClient = getGeminiClient();
+  if (aiClient) {
     try {
       const prompt = `You are a real-life university Viva Examiner executing an interactive exam.
 Subject: ${subjectCode}
@@ -388,7 +392,7 @@ Generate a JSON object matching this schema:
   "examinerMood": "Happy / Challenged / Skeptical / Encouraged"
 }`;
 
-      const response = await ai.models.generateContent({
+      const response = await aiClient.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
@@ -467,7 +471,8 @@ app.post("/api/notes-scanner", async (req, res) => {
     return res.status(400).json({ error: "Note title is required" });
   }
 
-  if (ai) {
+  const aiClient = getGeminiClient();
+  if (aiClient) {
     try {
       const prompt = `You are a Student Research and Peer Summarizer. Analyze this peer-contributed educational study resource:
 Title: "${noteTitle}"
@@ -487,7 +492,7 @@ Generate a JSON object matching this schema:
   "expectedWeightage": "Percentage weightage (e.g. 18%)"
 }`;
 
-      const response = await ai.models.generateContent({
+      const response = await aiClient.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
@@ -642,9 +647,10 @@ app.post("/api/companion-chat", async (req, res) => {
     // If the last message is from the model, Gemini supports it but it represents a continuation.
   }
 
-  if (ai) {
+  const aiClient = getGeminiClient();
+  if (aiClient) {
     try {
-      const response = await ai.models.generateContent({
+      const response = await aiClient.models.generateContent({
         model: modelToUse,
         contents: conversationParts,
         config: configToUse

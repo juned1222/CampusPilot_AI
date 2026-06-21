@@ -53,16 +53,19 @@ export default function Sidebar({ currentTab, setCurrentTab }: SidebarProps) {
                   <button
                     key={item.id}
                     onClick={() => setCurrentTab(item.id)}
-                    className={`group relative flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-medium transition-all duration-150 ${
+                    className={`group relative flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
                       isActive
                         ? item.isEmergency
-                          ? 'bg-red-500/10 text-red-400 border border-red-500/30'
-                          : 'bg-indigo-650/15 text-indigo-400 border border-indigo-600/20'
-                        : 'text-slate-400 hover:bg-slate-900/60 hover:text-slate-200 border border-transparent'
+                          ? 'bg-red-500/10 text-red-400 border border-red-500/30 font-bold'
+                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm shadow-indigo-950/5 font-bold'
+                        : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border border-transparent'
                     }`}
                   >
-                    <span className="flex items-center space-x-3">
-                      <Icon className={`h-4 w-4 shrink-0 transition-transform ${item.isEmergency ? 'animate-pulse text-red-400' : 'text-slate-400 group-hover:text-slate-200'} ${isActive && !item.isEmergency ? 'text-indigo-400' : ''}`} />
+                    {isActive && (
+                      <span className="absolute left-0 top-1/4 h-1/2 w-1 bg-indigo-500 rounded-r animate-pulse" />
+                    )}
+                    <span className="flex items-center space-x-3 transition-transform duration-200 group-hover:translate-x-1">
+                      <Icon className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110 ${item.isEmergency ? 'animate-pulse text-red-400' : 'text-slate-400 group-hover:text-slate-200'} ${isActive && !item.isEmergency ? 'text-indigo-400' : ''}`} />
                       <span>{item.name}</span>
                     </span>
                     {item.isEmergency && (

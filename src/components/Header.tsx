@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Search, Sparkles, Award, Flame, BrainCircuit, GraduationCap } from 'lucide-react';
+import { Search, Sparkles, Award, Flame, BrainCircuit, GraduationCap, LogOut, Sun, Moon } from 'lucide-react';
 import { SUBJECTS, SAMPLE_VIVAQA, SAMPLE_PYQS } from '../sampleData';
 
 interface HeaderProps {
@@ -14,6 +14,10 @@ interface HeaderProps {
   setSelectedSubjectForViva?: (code: string) => void;
   userPoints: number;
   userRank: number;
+  user?: { name: string; email: string; phone?: string; avatar: string } | null;
+  onLogout?: () => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
 }
 
 export default function Header({
@@ -22,11 +26,16 @@ export default function Header({
   setSelectedSubjectCode,
   setSelectedSubjectForViva,
   userPoints,
-  userRank
+  userRank,
+  user = null,
+  onLogout,
+  theme,
+  onToggleTheme
 }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [aiResult, setAiResult] = useState<{
     heading: string;
     explanation: string;
@@ -315,6 +324,20 @@ export default function Header({
             </div>
           </div>
 
+          {/* Light/Dark Theme Toggle button */}
+          <button
+            onClick={onToggleTheme}
+            id="btn-theme-toggle"
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white cursor-pointer transition-all active:scale-95 duration-200"
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          >
+            {theme === 'light' ? (
+              <Moon className="h-3.5 w-3.5 text-indigo-400" />
+            ) : (
+              <Sun className="h-3.5 w-3.5 text-amber-400" />
+            )}
+          </button>
+
           {/* Elite Pilot Level */}
           <div className="hidden items-center space-x-2 rounded-xl border border-slate-800 bg-slate-900/40 px-2.5 py-1 sm:flex">
             <div className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-500/10 text-indigo-400">
@@ -323,15 +346,64 @@ export default function Header({
             <span className="text-[11px] font-bold text-slate-300">Lvl 4</span>
           </div>
 
-          {/* Top Contributor User Slot */}
-          <div className="flex items-center space-x-2 border-l border-slate-800 pl-4">
-            <div className="text-right hidden sm:block">
-              <div className="text-[11px] font-bold text-white">Rishi Sharma</div>
-              <div className="text-[9px] text-indigo-450 text-indigo-400 uppercase tracking-tighter font-mono">Top Contributor</div>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 border border-slate-800 flex items-center justify-center text-[10px] font-black text-white shrink-0 shadow-inner">
-              RS
-            </div>
+          {/* Active User profile slot & dropdown toggler */}
+          <div className="relative flex items-center space-x-2 border-l border-slate-800 pl-4">
+            <button 
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className="flex items-center space-x-2.5 text-left focus:outline-none hover:opacity-85 transition-opacity cursor-pointer group"
+              id="user-profile-toggle"
+            >
+              <div className="text-right hidden sm:block">
+                <div className="text-[11px] font-bold text-white group-hover:text-indigo-400 transition-colors">
+                  {user ? user.name : 'Rishi Sharma'}
+                </div>
+                <div className="text-[9px] text-indigo-400 uppercase tracking-tighter font-mono font-bold">
+                  {user ? (user.phone ? 'Phone Verified' : 'Google Scholar') : 'Top Contributor'}
+                </div>
+              </div>
+              
+              {user?.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.name} 
+                  referrerPolicy="no-referrer"
+                  className="w-8 h-8 rounded-full border border-slate-700 shadow-inner object-cover" 
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 border border-slate-800 flex items-center justify-center text-[10px] font-black text-white shrink-0 shadow-inner">
+                  {user ? user.name.split(' ').map(nByWord => nByWord[0]).join('') : 'RS'}
+                </div>
+              )}
+            </button>
+
+            {/* Profile Dropdown Menu */}
+            {showProfileMenu && (
+              <div className="absolute right-0 top-11 mt-1 w-56 rounded-xl border border-slate-800 bg-slate-950 p-2 shadow-2xl z-50 animate-fade-in text-xs">
+                <div className="px-2.5 py-2 border-b border-slate-900 mb-1">
+                  <p className="font-bold text-slate-100">{user ? user.name : 'Rishi Sharma'}</p>
+                  <p className="text-[9px] text-slate-500 font-mono mt-0.5 truncate max-w-[190px]">
+                    {user ? user.email : 'rishi.sharma@rgpv.edu'}
+                  </p>
+                  {user?.phone && (
+                    <p className="text-[9.5px] text-indigo-400 font-mono mt-1">
+                      📞 {user.phone}
+                    </p>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    if (onLogout) onLogout();
+                  }}
+                  id="btn-profile-logout"
+                  className="flex w-full items-center space-x-2 rounded-lg px-2.5 py-1.5 text-left text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="font-semibold">Sign Out Session</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
