@@ -41,20 +41,6 @@ export default function App() {
       localStorage.setItem('campuspilot_demo_mode', String(isDemoModeEnabled));
     } catch {}
   }, [isDemoModeEnabled]);
-
-  // Support URL Hash & Path Based Secret Admin Access
-  useEffect(() => {
-    const checkAdminRoute = () => {
-      const hash = window.location.hash;
-      const path = window.location.pathname;
-      if (hash.includes('admin') || path.includes('/admin')) {
-        setCurrentTab('admin');
-      }
-    };
-    checkAdminRoute();
-    window.addEventListener('hashchange', checkAdminRoute);
-    return () => window.removeEventListener('hashchange', checkAdminRoute);
-  }, []);
   
   // Dynamic light/dark theme preference state
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -113,6 +99,36 @@ export default function App() {
       console.error(e);
     }
   };
+
+  // Support URL Hash & Path Based Secret Admin Access (Restricted to admins only)
+  const ADMIN_EMAILS = useMemo(() => ['junedshekhkhan@gmail.com'], []);
+  const activeUser = isDemoModeEnabled 
+    ? { name: "Juned Khan", email: "junedshekhkhan@gmail.com", avatar: user?.avatar || '' } 
+    : user;
+  const isAdmin = useMemo(() => {
+    if (!activeUser || !activeUser.email) return false;
+    return ADMIN_EMAILS.includes(activeUser.email.toLowerCase());
+  }, [activeUser, ADMIN_EMAILS]);
+
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      const hash = window.location.hash;
+      const path = window.location.pathname;
+      if (hash.includes('admin') || path.includes('/admin')) {
+        if (user) {
+          if (isAdmin) {
+            setCurrentTab('admin');
+          } else {
+            window.location.hash = '';
+            setCurrentTab('overview');
+          }
+        }
+      }
+    };
+    checkAdminRoute();
+    window.addEventListener('hashchange', checkAdminRoute);
+    return () => window.removeEventListener('hashchange', checkAdminRoute);
+  }, [isAdmin, user]);
   
   // Shared academic states
   const [selectedSubjectCode, setSelectedSubjectCode] = useState<string>('BT101');
@@ -236,7 +252,7 @@ export default function App() {
       {/* Primary layout container */}
       <div className="mx-auto max-w-7xl flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
         {/* Sidebar Left Navigation Panel */}
-        <Sidebar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+        <Sidebar currentTab={currentTab} setCurrentTab={setCurrentTab} isAdmin={isAdmin} />
 
         {/* Core Main Viewport Frame */}
         <main className="flex-1 px-4 py-6 sm:px-6 md:py-8 overflow-x-hidden">
@@ -297,7 +313,7 @@ export default function App() {
                 <ComingSoonRoadmap />
               )}
 
-              {currentTab === 'admin' && (
+              {currentTab === 'admin' && isAdmin && (
                 <AdminPanel
                   isDemoModeEnabled={isDemoModeEnabled}
                   onToggleDemoMode={() => setIsDemoModeEnabled(!isDemoModeEnabled)}

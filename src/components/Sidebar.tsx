@@ -19,9 +19,10 @@ import {
 interface SidebarProps {
   currentTab: string;
   setCurrentTab: (tab: string) => void;
+  isAdmin?: boolean;
 }
 
-export default function Sidebar({ currentTab, setCurrentTab }: SidebarProps) {
+export default function Sidebar({ currentTab, setCurrentTab, isAdmin = false }: SidebarProps) {
   const navItems = [
     { id: 'overview', name: 'Dashboard Overview', icon: LayoutDashboard },
     { id: 'chatbot', name: 'AI Doubt Solver & Chat', icon: MessageSquare },
@@ -101,21 +102,23 @@ export default function Sidebar({ currentTab, setCurrentTab }: SidebarProps) {
       <div className="border-t border-slate-900 pt-4 space-y-3.5">
         
         {/* Secret Admin Override Button */}
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center space-x-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
-            <span className="text-[10px] font-mono text-slate-500 font-bold">SECURITY GATE</span>
+        {isAdmin && (
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center space-x-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
+              <span className="text-[10px] font-mono text-slate-500 font-bold">SECURITY GATE</span>
+            </div>
+            <button
+              onClick={() => setCurrentTab('admin')}
+              id="btn-secret-admin"
+              className="flex items-center gap-1 px-2 py-0.5 rounded border border-slate-800 bg-slate-900/50 hover:bg-rose-500/10 hover:border-rose-500/35 hover:text-rose-400 text-[10px] font-mono font-bold text-slate-400 transition-all cursor-pointer group active:scale-95"
+              title="Access Secret Admin Panel"
+            >
+              <Lock className="h-2.5 w-2.5 text-slate-500 group-hover:text-rose-400 animate-pulse" />
+              <span>ADMIN ENGINE</span>
+            </button>
           </div>
-          <button
-            onClick={() => setCurrentTab('admin')}
-            id="btn-secret-admin"
-            className="flex items-center gap-1 px-2 py-0.5 rounded border border-slate-800 bg-slate-900/50 hover:bg-rose-500/10 hover:border-rose-500/35 hover:text-rose-400 text-[10px] font-mono font-bold text-slate-400 transition-all cursor-pointer group active:scale-95"
-            title="Access Secret Admin Panel"
-          >
-            <Lock className="h-2.5 w-2.5 text-slate-500 group-hover:text-rose-400 animate-pulse" />
-            <span>ADMIN ENGINE</span>
-          </button>
-        </div>
+        )}
 
         <p className="font-mono text-[9px] text-slate-500 leading-normal px-2">
           Tagline:<br />
