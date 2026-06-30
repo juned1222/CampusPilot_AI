@@ -398,14 +398,29 @@ export default function CompanionChatbot({ onContributeXP }: CompanionChatbotPro
 
           {/* Loading Indicator */}
           {isLoading && (
-            <div className="flex space-x-2 mr-auto items-start max-w-[85%] animate-pulse">
-              <div className="bg-slate-900 border border-slate-850 p-3 rounded-2xl rounded-bl-none flex items-center space-x-2">
-                <span className="inline-block h-1.5 w-1.5 bg-indigo-400 rounded-full animate-bounce" />
-                <span className="inline-block h-1.5 w-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                <span className="inline-block h-1.5 w-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-                <span className="text-[10px] text-slate-450 font-mono text-indigo-400 font-bold ml-1">
-                  {selectedMode === 'high-thinking' ? 'AI reasoning...' : selectedMode === 'grounded-search' ? 'Searching web...' : 'Compiling response...'}
-                </span>
+            <div className="flex space-x-2 mr-auto items-start max-w-[85%]">
+              <div className="bg-slate-900/60 border border-indigo-500/15 p-3 rounded-2xl rounded-bl-none shadow-lg shadow-indigo-950/10 flex flex-col space-y-1.5">
+                <div className="flex items-center space-x-2.5">
+                  <div className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500"></span>
+                  </div>
+                  <span className="text-xs font-mono font-black text-indigo-400 uppercase tracking-wider animate-pulse">
+                    Thinking with Gemini AI
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2 font-sans text-[11px] text-slate-300">
+                  <span className="inline-block h-1 w-1 bg-indigo-400 rounded-full animate-bounce" />
+                  <span className="inline-block h-1 w-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <span className="inline-block h-1 w-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                  <span className="text-slate-400 ml-1 font-medium">
+                    {selectedMode === 'high-thinking' 
+                      ? 'Analyzing subject curriculum, building depth priority trees...' 
+                      : selectedMode === 'grounded-search' 
+                        ? 'Connecting to real-time RGPV portals & web index...' 
+                        : 'Compiling continuous mathematical schemas...'}
+                  </span>
+                </div>
               </div>
             </div>
           )}

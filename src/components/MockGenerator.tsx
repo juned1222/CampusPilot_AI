@@ -195,14 +195,28 @@ export default function MockGenerator() {
 
       {/* Generation logs feedback */}
       {isGenerating && (
-        <div className="rounded-2xl border border-slate-850 bg-slate-950 p-6 text-center space-y-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-400 mx-auto animate-spin">
-            <RefreshCcw className="h-5 w-5" />
+        <div className="rounded-2xl border border-indigo-500/25 bg-slate-900/45 p-6 text-center space-y-4 shadow-xl max-w-md mx-auto">
+          <div className="relative flex items-center justify-center h-12 w-12 mx-auto">
+            <span className="animate-ping absolute inline-flex h-10 w-10 rounded-full bg-indigo-400 opacity-20"></span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-400 animate-spin border border-indigo-500/30">
+              <RefreshCcw className="h-4 w-4" />
+            </div>
           </div>
-          <div className="max-w-xs mx-auto space-y-1.5 align-middle">
+          
+          <div className="space-y-1">
+            <h4 className="text-xs font-mono font-black text-indigo-400 uppercase tracking-widest animate-pulse">
+              ANALYZING PYQs & CURRICULUM
+            </h4>
+            <p className="text-[10px] text-slate-500 font-sans">
+              Thinking with Gemini to compose a balanced exam structure...
+            </p>
+          </div>
+
+          <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 max-w-xs mx-auto space-y-1.5 text-left">
             {generationLogs.map((log, i) => (
-              <p key={i} className="text-[10px] font-mono text-indigo-300 transition-opacity">
-                ❯ {log}
+              <p key={i} className="text-[10px] font-mono text-indigo-300 flex items-center gap-1.5">
+                <span className="text-indigo-500 font-bold">❯</span>
+                <span className="truncate">{log}</span>
               </p>
             ))}
           </div>

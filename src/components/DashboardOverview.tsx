@@ -3,72 +3,167 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flame, BrainCircuit, BookOpen, HelpCircle, FileCheck, Code, Sparkles, Award, ArrowUpRight, TrendingUp, Users, Download, Eye, FileText } from 'lucide-react';
-import { SUBJECTS, INITIAL_LEADERBOARD, SAMPLE_NOTES } from '../sampleData';
+import { useState } from 'react';
+import { 
+  Flame, 
+  BrainCircuit, 
+  BookOpen, 
+  HelpCircle, 
+  FileCheck, 
+  Code, 
+  Sparkles, 
+  Award, 
+  ArrowUpRight, 
+  TrendingUp, 
+  Users, 
+  Download, 
+  FileText, 
+  Timer, 
+  CheckCircle2, 
+  Calendar, 
+  Layers, 
+  ChevronRight, 
+  BookOpenCheck,
+  Zap,
+  HelpCircle as QuestionIcon,
+  MessageSquare
+} from 'lucide-react';
+import { SUBJECTS, INITIAL_LEADERBOARD, SAMPLE_NOTES, SAMPLE_VIVAQA } from '../sampleData';
 
 interface DashboardOverviewProps {
   setCurrentTab: (tab: string) => void;
   setSelectedSubjectCode: (code: string) => void;
   setSelectedSubjectForViva: (code: string) => void;
   userPoints: number;
+  isDemoModeEnabled?: boolean;
 }
 
 export default function DashboardOverview({
   setCurrentTab,
   setSelectedSubjectCode,
   setSelectedSubjectForViva,
-  userPoints
+  userPoints,
+  isDemoModeEnabled = false
 }: DashboardOverviewProps) {
   
-  // Custom features map
+  // Interactive Syllabus Tracker (Units 1-5 Progress) cached in localStorage
+  const [subjectProgress, setSubjectProgress] = useState<Record<string, boolean[]>>(() => {
+    try {
+      const saved = localStorage.getItem('campuspilot_subject_progress_v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    // Initialize 5 units per subject
+    const initial: Record<string, boolean[]> = {};
+    SUBJECTS.forEach(sub => {
+      initial[sub.code] = Array(sub.unitsCount).fill(false);
+    });
+    return initial;
+  });
+
+  // Daily Quick Revision Drill trigger
+  const [drillIndex, setDrillIndex] = useState(() => {
+    try {
+      const saved = localStorage.getItem('campuspilot_drill_index');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [showDrillAnswer, setShowDrillAnswer] = useState(false);
+
+  const toggleUnit = (subjectCode: string, unitIndex: number) => {
+    setSubjectProgress(prev => {
+      const updated = { ...prev };
+      if (!updated[subjectCode]) {
+        updated[subjectCode] = Array(5).fill(false);
+      }
+      const subjectUnits = [...updated[subjectCode]];
+      subjectUnits[unitIndex] = !subjectUnits[unitIndex];
+      updated[subjectCode] = subjectUnits;
+      
+      try {
+        localStorage.setItem('campuspilot_subject_progress_v2', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const currentDrill = SAMPLE_VIVAQA[drillIndex % SAMPLE_VIVAQA.length];
+
+  const handleNextDrill = () => {
+    const nextIdx = drillIndex + 1;
+    setDrillIndex(nextIdx);
+    setShowDrillAnswer(false);
+    try {
+      localStorage.setItem('campuspilot_drill_index', String(nextIdx));
+    } catch {}
+  };
+
+  // Calculated stats for progress
+  const overallStats = (() => {
+    let totalUnits = 0;
+    let completedUnits = 0;
+    SUBJECTS.forEach(sub => {
+      totalUnits += sub.unitsCount;
+      const progressList = subjectProgress[sub.code] || [];
+      completedUnits += progressList.slice(0, sub.unitsCount).filter(Boolean).length;
+    });
+    return {
+      percentage: totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 1050) / 10 : 0, 
+      completedUnits,
+      totalUnits
+    };
+  })();
+
+  // Premium Launchpad map - 6 primary modules
   const featurePromos = [
     {
-      id: 'emergency',
-      name: 'Exam Emergency',
-      status: 'Emergency Active',
-      desc: 'Enter subject hours & type to build instant high-intensity 3-day priorities.',
-      icon: Flame,
-      color: 'from-orange-500 to-red-500 shadow-red-500/10 text-red-400',
+      id: 'chatbot',
+      name: 'AI Doubt Solver',
+      status: 'Live Core',
+      desc: 'Ask complex queries, parse technical diagrams, and clarify syllabus concepts instantly.',
+      icon: MessageSquare,
+      color: 'text-blue-400 bg-blue-500/10 border-blue-500/10',
+    },
+    {
+      id: 'pomodoro',
+      name: 'AI Study Strategy',
+      status: 'Recommended',
+      desc: 'Design personalized preparation milestones and intervals for distraction-free sessions.',
+      icon: Timer,
+      color: 'text-teal-400 bg-teal-500/10 border-teal-500/10',
     },
     {
       id: 'pyq',
       name: 'PYQ Intelligence',
       status: 'Analytical',
-      desc: 'Visualize repeated patterns, trends, and expected hot questions with confidence scores.',
+      desc: 'Visualize repeated patterns, frequency logs, and expected hot exam questions.',
       icon: BrainCircuit,
-      color: 'from-indigo-500 to-purple-500 shadow-indigo-500/10 text-indigo-400',
+      color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/10',
     },
     {
-      id: 'notes',
-      name: 'Community Notes Hub',
-      status: 'Collaborative',
-      desc: 'Extract automated card collections, dynamic revision sheets & summary sheets.',
-      icon: BookOpen,
-      color: 'from-emerald-500 to-teal-500 shadow-emerald-500/10 text-emerald-400',
+      id: 'emergency',
+      name: 'SOS Exam Blueprint',
+      status: 'SOS Active',
+      desc: 'Build instant high-intensity 3-day priorities for immediate exam cramming.',
+      icon: Flame,
+      color: 'text-rose-400 bg-rose-500/10 border-rose-500/10',
     },
     {
       id: 'viva',
-      name: 'Viva Prep Center',
-      status: 'Expert-Level',
-      desc: 'Prepare for unexpected external questions and simulate interactive mock interviews.',
+      name: 'Viva Preparation',
+      status: 'Oral Drills',
+      desc: 'Practice unexpected external examiner questions in direct simulated drills.',
       icon: HelpCircle,
-      color: 'from-purple-500 to-pink-500 shadow-pink-500/10 text-pink-400',
+      color: 'text-purple-400 bg-purple-500/10 border-purple-500/10',
     },
     {
       id: 'mock',
-      name: 'Mock Generator',
-      status: 'Custom Testing',
+      name: 'AI Mock Generator',
+      status: 'Custom Exams',
       desc: 'Design fully formatted RGPV practice papers with absolute schematic accuracy.',
       icon: FileCheck,
-      color: 'from-blue-500 to-cyan-500 shadow-blue-500/10 text-blue-400',
-    },
-    {
-      id: 'coding',
-      name: 'Coding & Preparation',
-      status: 'Career Focus',
-      desc: 'C++, Python, complex Data Structures, web stacks & placement roadmaps.',
-      icon: Code,
-      color: 'from-yellow-500 to-amber-500 shadow-amber-500/10 text-amber-400',
+      color: 'text-sky-400 bg-sky-500/10 border-sky-500/10',
     }
   ];
 
@@ -79,240 +174,416 @@ export default function DashboardOverview({
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Premium Hero Section */}
-      <div className="relative overflow-hidden rounded-3xl bg-indigo-600 p-8 shadow-2xl shadow-indigo-950/40 text-white">
-        {/* Ambient decorative glass structures from the High Density theme */}
-        <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute right-12 top-1/2 -translate-y-1/2 hidden lg:flex space-x-4 pointer-events-none">
-          <div className="w-12 h-24 bg-white/10 rounded-full rotate-12 backdrop-blur-md border border-white/10"></div>
-          <div className="w-12 h-32 bg-white/20 rounded-full rotate-12 backdrop-blur-md border border-white/20"></div>
-        </div>
-
-        <div className="relative z-10 max-w-2xl space-y-4">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] bg-white/20 px-2 py-1 rounded inline-flex items-center gap-1.5 text-white">
-              <Sparkles className="h-3 w-3 fill-white/20" />
-              Academic Intelligence Platform
-            </span>
+    <div className="space-y-6 animate-fade-in text-slate-200">
+      
+      {/* Strong Hero Section */}
+      <div className="rounded-2xl border border-indigo-500/20 bg-slate-900/40 p-6 md:p-8 backdrop-blur-md relative overflow-hidden shadow-2xl">
+        {/* Subtle glowing accent light */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute -bottom-20 left-1/4 w-60 h-60 bg-purple-500/5 rounded-full blur-[80px] pointer-events-none" />
+        
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-4 max-w-2xl">
+            {/* Small premium USP badges */}
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[9px] font-bold tracking-widest text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20 font-mono">
+                ✦ AI POWERED
+              </span>
+              <span className="text-[9px] font-bold tracking-widest text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20 font-mono">
+                ✦ GEMINI INTEGRATED
+              </span>
+              <span className="text-[9px] font-bold tracking-widest text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20 font-mono">
+                ✦ EXAM FOCUSED
+              </span>
+              <span className="text-[9px] font-bold tracking-widest text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 font-mono">
+                ✦ PERSONALIZED
+              </span>
+              <span className="text-[9px] font-bold tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 font-mono">
+                ✦ ENGINEERING READY
+              </span>
+            </div>
+            
+            <h1 className="text-3xl md:text-4xl font-sans font-black tracking-tight text-white leading-tight">
+              Know What to Study.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-450 to-indigo-300">Know When to Study.</span><br />
+              Know How to Study.
+            </h1>
+            
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-sans max-w-xl">
+              CampusPilot AI transforms scattered academic resources into one personalized AI-powered academic workflow.
+            </p>
           </div>
-          <h1 className="font-sans text-3xl font-extrabold tracking-tight text-white sm:text-4xl leading-tight">
-            Study Smarter,<br />Not Harder.
-          </h1>
-          <p className="text-indigo-100 text-sm max-w-lg leading-relaxed">
-            CampusPilot AI transforms raw student contributions—previous year papers, handwritten summaries, and viva questions—into structured exam intelligence. Explore tailored predictions, interactive test structures, and smart roadmaps designed for absolute success.
-          </p>
-          <div className="flex flex-wrap gap-3 pt-2">
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
             <button
-              onClick={() => setCurrentTab('emergency')}
-              className="inline-flex items-center rounded-full bg-white px-5 py-2.5 text-xs font-bold text-indigo-700 shadow-md transition-all hover:scale-[1.02] cursor-pointer"
+              onClick={() => setCurrentTab('chatbot')}
+              className="flex items-center justify-center gap-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-6 py-3.5 transition-all cursor-pointer shadow-lg shadow-indigo-950/40 active:scale-95"
             >
-              <Flame className="mr-2 h-4 w-4 text-orange-500 fill-orange-500/20" />
-              Exam Emergency Mode
+              <MessageSquare className="h-4 w-4" />
+              <span>Start AI Assistant</span>
             </button>
             <button
-              onClick={() => setCurrentTab('contribution')}
-              className="inline-flex items-center rounded-full bg-indigo-500/30 border border-white/20 px-5 py-2.5 text-xs font-bold text-white backdrop-blur-sm transition-all hover:bg-indigo-500/40 cursor-pointer"
+              onClick={() => setCurrentTab('pyq')}
+              className="flex items-center justify-center gap-2 rounded-xl bg-slate-800/80 border border-slate-750 hover:bg-slate-800 text-slate-100 font-bold text-xs px-6 py-3.5 transition-all cursor-pointer active:scale-95"
             >
-              Contribute & Gain Points
+              <BrainCircuit className="h-4 w-4" />
+              <span>Explore PYQ Intelligence</span>
             </button>
           </div>
         </div>
 
-        {/* Global Stats bar with High Density overlay styling */}
-        <div className="relative z-10 mt-8 grid grid-cols-2 gap-4 border-t border-white/20 pt-6 sm:grid-cols-4 bg-white/5 -mx-8 -mb-8 p-6 backdrop-blur-xs">
-          <div>
-            <span className="block text-xl font-black text-white sm:text-2xl">4,850+</span>
-            <span className="block font-mono text-[9px] uppercase tracking-wider text-indigo-200">PYQs Contributed</span>
+        {/* Global Micro-Metrics Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800/60 text-center md:text-left">
+          <div className="space-y-0.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-slate-500">Exam Countdown</p>
+            <div className="flex items-center justify-center md:justify-start gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-slate-400" />
+              <span className="text-xs font-bold text-white">48 Days Remaining</span>
+            </div>
           </div>
-          <div>
-            <span className="block text-xl font-black text-white sm:text-2xl">1,240+</span>
-            <span className="block font-mono text-[9px] uppercase tracking-wider text-indigo-200">Curated Notes & Scans</span>
+          <div className="space-y-0.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-slate-500">Your Syllabus Coverage</p>
+            <div className="flex items-center justify-center md:justify-start gap-1.5">
+              <span className="text-xs font-bold text-indigo-400">{overallStats.completedUnits} of {overallStats.totalUnits} Units</span>
+              <span className="text-[10px] text-slate-500">({Math.round(overallStats.percentage)}%)</span>
+            </div>
           </div>
-          <div>
-            <span className="block text-xl font-black text-white sm:text-2xl">15,400+</span>
-            <span className="block font-mono text-[9px] uppercase tracking-wider text-indigo-200">System Viva Drills</span>
+          <div className="space-y-0.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-slate-500">Academic Pool</p>
+            <div className="flex items-center justify-center md:justify-start gap-1.5">
+              <span className="text-xs font-bold text-white">4,850+ PYQs Listed</span>
+            </div>
           </div>
-          <div>
-            <span className="block text-xl font-black text-white sm:text-2xl">98.7%</span>
-            <span className="block font-mono text-[9px] uppercase tracking-wider text-indigo-200">Prediction Confidence</span>
+          <div className="space-y-0.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-slate-500">Verified Answer Accuracy</p>
+            <div className="flex items-center justify-center md:justify-start gap-1.5">
+              <span className="text-xs font-bold text-emerald-400">98.7% Confidence</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Core Intelligence Modules */}
-      <div>
-        <h2 className="font-sans text-lg font-bold tracking-tight text-white mb-4">
-          Core AI Intelligence Suites
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {featurePromos.map((feat) => {
-            const Icon = feat.icon;
-            return (
-              <div
-                key={feat.id}
-                onClick={() => setCurrentTab(feat.id)}
-                className="group relative cursor-pointer rounded-2xl border border-slate-800 bg-slate-900/10 p-5 transition-all duration-200 hover:border-slate-700 hover:bg-slate-900/30 hover:shadow-lg hover:-translate-y-0.5"
-              >
-                <div className="flex items-start justify-between">
-                  <div className={`rounded-xl bg-slate-900 p-2.5 shadow-inner ${feat.color}`}>
-                    <Icon className="h-5 w-5" />
+      {/* Main Split Interface */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        
+        {/* Left Side: Interactive Progress Syllabus Checklist & Course Launcher */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Section Head */}
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div>
+              <h2 className="font-sans text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Layers className="h-4 w-4 text-indigo-400" />
+                Syllabus Progress Tracker & Directory
+              </h2>
+              <p className="text-[11px] text-slate-500">Click subject standard codes to launch deep intelligence modules. Check off units as you study.</p>
+            </div>
+            <div className="text-right">
+              <span className="font-mono text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-bold">
+                {SUBJECTS.length} COURSES LOADED
+              </span>
+            </div>
+          </div>
+
+          {/* Subject Rows for Maximum Productivity & High Density */}
+          <div className="space-y-3">
+            {SUBJECTS.map((sub) => {
+              const progressList = subjectProgress[sub.code] || Array(sub.unitsCount).fill(false);
+              const completedCount = progressList.slice(0, sub.unitsCount).filter(Boolean).length;
+              const percent = Math.round((completedCount / sub.unitsCount) * 100);
+
+              return (
+                <div 
+                  key={sub.id}
+                  className="rounded-xl border border-slate-800 bg-slate-900/10 p-4 hover:border-slate-700 transition-all group"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    
+                    {/* Course Title and Launch */}
+                    <div className="space-y-1 max-w-sm">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleSubjectClick(sub.code)}
+                          className="font-mono text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/10 uppercase transition-all"
+                        >
+                          {sub.code}
+                        </button>
+                        <span className="font-sans text-[10px] text-slate-500">{sub.year}</span>
+                      </div>
+                      <h3 
+                        onClick={() => handleSubjectClick(sub.code)}
+                        className="font-sans text-xs font-bold text-slate-200 group-hover:text-white cursor-pointer transition-colors flex items-center"
+                      >
+                        {sub.name}
+                        <ArrowUpRight className="ml-1 h-3 w-3 opacity-0 group-hover:opacity-100 transition-all text-slate-400" />
+                      </h3>
+                      <p className="text-[11px] text-slate-400 leading-normal line-clamp-1">
+                        {sub.description}
+                      </p>
+                    </div>
+
+                    {/* Interactive Multi-Unit Checklist Grid */}
+                    <div className="flex items-center gap-4 shrink-0 justify-between md:justify-end">
+                      <div className="space-y-1 ">
+                        <p className="font-mono text-[9px] text-slate-500 uppercase tracking-wider text-right">Units Checked</p>
+                        <div className="flex gap-1.5">
+                          {Array.from({ length: sub.unitsCount }).map((_, idx) => {
+                            const isCompleted = progressList[idx] || false;
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => toggleUnit(sub.code, idx)}
+                                title={`Toggle Unit ${idx + 1}`}
+                                className={`flex h-5 w-6 items-center justify-center rounded text-[9.5px] font-mono border transition-all active:scale-90 ${
+                                  isCompleted 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                                    : 'bg-slate-900/60 text-slate-500 border-slate-800 hover:border-slate-700'
+                                }`}
+                              >
+                                U{idx + 1}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Coverage Progress Indicator */}
+                      <div className="text-right pl-3 border-l border-slate-800">
+                        <span className="block font-mono text-[11px] font-bold text-slate-100">
+                          {percent}%
+                        </span>
+                        <span className="block text-[8.5px] font-semibold text-slate-500 uppercase tracking-tighter">
+                          Prepared
+                        </span>
+                      </div>
+
+                    </div>
                   </div>
-                  <span className="rounded-full bg-slate-900 px-2.5 py-0.5 font-mono text-[9px] text-slate-400 border border-slate-800 group-hover:border-slate-700">
-                    {feat.status}
-                  </span>
                 </div>
-                <h3 className="mt-4 font-sans text-sm font-bold text-slate-200 group-hover:text-white transition-colors flex items-center">
-                  {feat.name}
-                  <ArrowUpRight className="ml-1 h-3 w-3 opacity-0 group-hover:opacity-100 transition-all text-slate-400 group-hover:text-white" />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Side: Tools Command Center, Live Activity & Quick Revision Drill */}
+        <div className="space-y-6">
+          
+          {/* Quick Revision Drill of the Day */}
+          <div className="rounded-xl border border-slate-850 bg-slate-900/10 p-4 relative overflow-hidden backdrop-blur-sm">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3 relative z-10">
+              <div className="flex items-center space-x-2">
+                <BrainCircuit className="h-4 w-4 text-indigo-400" />
+                <h3 className="font-sans text-xs font-black uppercase tracking-wider text-white">
+                  Insta-Drill of the Day
                 </h3>
-                <p className="mt-1 text-xs text-slate-400 leading-relaxed">
-                  {feat.desc}
+              </div>
+              <button 
+                onClick={handleNextDrill}
+                className="font-mono text-[9px] text-indigo-400 hover:text-indigo-300 font-bold uppercase cursor-pointer"
+              >
+                Skip ✦
+              </button>
+            </div>
+
+            <div className="space-y-3 relative z-10">
+              <div>
+                <span className="font-mono text-[9px] font-bold text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/10">
+                  {currentDrill.subjectCode} · {currentDrill.difficulty}
+                </span>
+                <p className="mt-2 text-xs font-semibold text-slate-200 leading-normal">
+                  "{currentDrill.question}"
                 </p>
               </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* Main Split: Subjects List & Live Leaderboards */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* RGPV Subject Catalog */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-sans text-lg font-bold tracking-tight text-white">
-              RGPV Subject & Course Directory
-            </h2>
-            <span className="font-mono text-[10px] text-slate-400">Total {SUBJECTS.length} Subjects Loaded</span>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {SUBJECTS.map((sub) => (
-              <div
-                key={sub.id}
-                onClick={() => handleSubjectClick(sub.code)}
-                className="group flex flex-col justify-between cursor-pointer rounded-xl border border-slate-800 bg-slate-900/10 p-4 transition-all duration-150 hover:border-indigo-500/40 hover:bg-slate-900/40"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/10 uppercase">
-                      {sub.code}
-                    </span>
-                    <span className="font-sans text-[10px] font-semibold text-slate-400">
-                      {sub.year}
-                    </span>
+              {showDrillAnswer ? (
+                <div className="space-y-2 animate-fade-in p-3 rounded-lg bg-indigo-950/20 border border-indigo-500/10 text-[11px] text-slate-300 leading-relaxed font-sans">
+                  <p>{currentDrill.answer}</p>
+                  <div className="border-t border-indigo-500/10 pt-2 mt-1.5 flex flex-col gap-1 text-[9.5px]">
+                    <span className="text-indigo-400 font-bold">💡 Examiner Warning:</span>
+                    <span className="text-slate-400 italic">"{currentDrill.examinerInsight}"</span>
                   </div>
-                  <h3 className="mt-2.5 font-sans text-xs font-bold text-slate-200 group-hover:text-white">
-                    {sub.name}
-                  </h3>
-                  <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">
-                    {sub.description}
-                  </p>
                 </div>
-                <div className="mt-3 border-t border-slate-800/60 pt-2.5 flex items-center justify-between text-[10px] text-slate-400">
-                  <span className="flex items-center">
-                    <FileText className="mr-1 h-3.5 w-3.5 text-slate-500" />
-                    {sub.unitsCount} Units Analyzed
-                  </span>
-                  <span className="text-indigo-400 group-hover:translate-x-1 transition-transform">
-                    View Intelligence →
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              ) : (
+                <button
+                  onClick={() => setShowDrillAnswer(true)}
+                  className="w-full py-2 bg-slate-800/80 hover:bg-indigo-650 active:bg-indigo-700 text-white hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Reveal Standard Explanation
+                </button>
+              )}
 
-        {/* Global Community Leaderboard & Recent Activity */}
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/10 p-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
-              <div className="flex items-center space-x-2">
-                <Users className="h-4 w-4 text-purple-400" />
-                <h2 className="font-sans text-xs font-bold uppercase tracking-wider text-white">
-                  Leaderboard Contributors
-                </h2>
+              {showDrillAnswer && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedSubjectForViva(currentDrill.subjectCode);
+                      setCurrentTab('viva');
+                    }}
+                    className="flex-1 py-1.5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold rounded-lg transition-all text-center"
+                  >
+                    Simulate full Viva →
+                  </button>
+                  <button
+                    onClick={handleNextDrill}
+                    className="px-3 py-1.5 bg-indigo-600/25 hover:bg-indigo-600 text-white text-[10px] font-bold rounded-lg transition-all"
+                  >
+                    Next Question
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* High-Density Command Launchpad */}
+          <div className="rounded-xl border border-slate-850 p-4 bg-slate-900/10">
+            <h3 className="font-sans text-xs font-black uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-800/60 pb-2 flex items-center justify-between">
+              <span>Quick Tools Launchpad</span>
+              <span className="text-[9px] text-indigo-400 uppercase font-mono font-bold">1-Click Jump</span>
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-2">
+              {featurePromos.map((feat) => {
+                const Icon = feat.icon;
+                return (
+                  <button
+                    key={feat.id}
+                    onClick={() => setCurrentTab(feat.id)}
+                    className="flex flex-col items-start rounded-lg border border-slate-850 bg-slate-950 px-3 py-2.5 text-left transition-all duration-150 hover:border-slate-700 hover:bg-slate-900/40 group active:scale-[0.98] cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className={`p-1.5 rounded-lg border ${feat.color}`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-[8px] font-mono text-slate-500 group-hover:text-indigo-400 transition-colors uppercase font-bold">
+                        {feat.status}
+                      </span>
+                    </div>
+                    <span className="mt-2 text-[11px] font-bold text-slate-200 group-hover:text-white truncate w-full">
+                      {feat.name}
+                    </span>
+                    <span className="text-[9px] text-slate-500 line-clamp-1 mt-0.5 leading-tight group-hover:text-slate-400">
+                      {feat.desc}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Intelligent Recommendation Card */}
+          <div className="rounded-xl border border-indigo-500/20 bg-gradient-to-b from-slate-900 to-indigo-950/10 p-5 relative overflow-hidden shadow-xl">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3 mb-4">
+              <div className="space-y-0.5">
+                <span className="block font-mono text-[9px] text-indigo-400 font-extrabold uppercase bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 w-fit">
+                  RECOMMENDED BY AI
+                </span>
+                <h3 className="text-xs font-sans font-black tracking-wider text-white uppercase mt-1">
+                  TODAY'S STUDY ACTION
+                </h3>
               </div>
-              <span className="font-mono text-[9px] text-purple-400 bg-purple-500/5 px-1.5 py-0.5 rounded border border-purple-500/10 uppercase font-black">
-                Top XP
+              <span className="relative flex h-2 w-2 mt-1">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
             </div>
 
-            <div className="space-y-2">
-              {INITIAL_LEADERBOARD.map((user) => (
-                <div
-                  key={user.rank}
-                  className={`flex items-center justify-between rounded-lg p-2.5 text-xs transition-colors ${
-                    user.isCurrentUser
-                      ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20'
-                      : 'hover:bg-slate-900/60'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2.5">
-                    <span className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[10px] font-bold ${
-                      user.rank === 1 ? 'bg-amber-500/20 text-amber-500' :
-                      user.rank === 2 ? 'bg-slate-400/20 text-slate-300' :
-                      user.rank === 3 ? 'bg-amber-700/20 text-amber-600' :
-                      'text-slate-500'
-                    }`}>
-                      {user.rank}
-                    </span>
-                    <div>
-                      <span className={`block font-semibold ${user.isCurrentUser ? 'text-indigo-300 font-bold' : 'text-slate-200'}`}>
-                        {user.name}
-                      </span>
-                      <span className="block text-[9px] text-slate-400">
-                        {user.contributions} uploads · {user.badgeCount} badges
-                      </span>
-                    </div>
-                  </div>
-                  <span className="font-mono text-[11px] font-bold text-slate-100">
-                    {user.points} <span className="text-[9px] font-medium text-slate-400">XP</span>
+            <div className="flex flex-col gap-4">
+              <div className="space-y-3.5">
+                <div className="space-y-1">
+                  <span className="block text-xs font-semibold text-slate-400 leading-none">
+                    {(() => {
+                      const currentHour = new Date().getHours();
+                      const greeting = currentHour < 12 ? "Good Morning" : currentHour < 17 ? "Good Afternoon" : "Good Evening";
+                      const userName = isDemoModeEnabled ? "Juned" : (() => {
+                        try {
+                          const saved = localStorage.getItem('campuspilot_user');
+                          if (saved) return JSON.parse(saved).name.split(' ')[0];
+                        } catch {}
+                        return "Juned";
+                      })();
+                      return `${greeting}, ${userName}`;
+                    })()} 👋
+                  </span>
+                  <span className="block text-[15px] font-black text-white leading-tight">
+                    Today's Focus:<br />
+                    <span className="text-indigo-400">BT101 Chemistry</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-mono text-[9.5px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/15 font-bold uppercase mt-1">
+                    Exam in 5 Days
                   </span>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Quick AI summary recommendation activity block */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/10 p-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-                <h2 className="font-sans text-xs font-bold uppercase tracking-wider text-white">
-                  Trending Updates
-                </h2>
+                <div className="p-2.5 rounded-lg bg-slate-950/50 border border-slate-850 space-y-1">
+                  <span className="block font-mono text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                    AI AGENT INSIGHT
+                  </span>
+                  <p className="text-[11px] text-indigo-300 font-sans font-medium">
+                    "Complete Unit 2 Today to maximize your expected Zeolite calculations scoring."
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-3">
-              {SAMPLE_NOTES.slice(0, 2).map((note) => (
-                <div key={note.id} className="text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold text-indigo-400">{note.subjectCode}</span>
-                    <span className="text-[9px] text-slate-400">{note.createdAt}</span>
+              {/* Bottom Row: button + progress ring */}
+              <div className="flex items-center justify-between border-t border-slate-800/60 pt-3">
+                <button
+                  onClick={() => {
+                    setSelectedSubjectCode('BT101');
+                    setSelectedSubjectForViva('BT101');
+                    setCurrentTab('pyq');
+                  }}
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-3.5 rounded-xl transition-all cursor-pointer active:scale-95 shadow-md shadow-indigo-950/35"
+                >
+                  <span>Start Studying</span>
+                  <span>→</span>
+                </button>
+
+                {/* Professional circular progress ring */}
+                <div className="flex items-center gap-2 select-none">
+                  <div className="relative flex items-center justify-center">
+                    <svg className="w-14 h-14 transform -rotate-90">
+                      <circle
+                        cx="28"
+                        cy="28"
+                        r="22"
+                        className="text-slate-800"
+                        strokeWidth="4"
+                        stroke="currentColor"
+                        fill="transparent"
+                      />
+                      <circle
+                        cx="28"
+                        cy="28"
+                        r="22"
+                        className="text-indigo-400 transition-all duration-1000 ease-out"
+                        strokeWidth="4"
+                        strokeDasharray={138.16}
+                        strokeDashoffset={138.16 * (1 - 0.68)}
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="transparent"
+                      />
+                    </svg>
+                    <div className="absolute flex flex-col items-center justify-center">
+                      <span className="text-[10px] font-mono font-black text-white leading-none">68%</span>
+                    </div>
                   </div>
-                  <p className="mt-1 font-sans font-semibold text-slate-200 line-clamp-1 hover:text-indigo-400 cursor-pointer" onClick={() => setCurrentTab('notes')}>
-                    {note.title}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-slate-400 leading-normal line-clamp-2">
-                    {note.aiSummary}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between text-[9px] text-slate-400">
-                    <span className="flex items-center">
-                      <Download className="mr-0.5 h-3 w-3 text-emerald-400" />
-                      {note.downloads} downloads
-                    </span>
-                    <span className="flex items-center text-rose-400">
-                      ♥ {note.likes} Likes
-                    </span>
+                  <div className="space-y-px">
+                    <span className="block text-[8px] font-mono text-slate-500 font-bold uppercase leading-none">Daily target</span>
+                    <span className="block text-[10px] font-bold text-slate-300">U2 Complete</span>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
+
         </div>
+
       </div>
+
     </div>
   );
 }

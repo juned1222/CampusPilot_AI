@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   BookOpen,
   Search,
@@ -22,6 +22,7 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import { SUBJECTS, SAMPLE_NOTES } from '../sampleData';
+import { firebaseService } from '../lib/firebase';
 
 interface CommunityNotesProps {
   onContributeXP: (points: number) => void;
@@ -32,6 +33,7 @@ export default function CommunityNotes({ onContributeXP }: CommunityNotesProps) 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeNotes, setActiveNotes] = useState(SAMPLE_NOTES);
   const [selectedNoteId, setSelectedNoteId] = useState<string>(SAMPLE_NOTES[0].id);
+  const [isSyncingFromDb, setIsSyncingFromDb] = useState(false);
   
   // Flashcard flip tracker: map of cardIndex -> boolean
   const [flippedCards, setFlippedCards] = useState<Record<number, boolean>>({});
@@ -42,6 +44,35 @@ export default function CommunityNotes({ onContributeXP }: CommunityNotesProps) 
   const [uploadType, setUploadType] = useState<'PDF' | 'Handwritten Scan'>('Handwritten Scan');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Fetch from live Firestore upon mount
+  const syncWithFirestore = async () => {
+    setIsSyncingFromDb(true);
+    try {
+      const dbNotes = await firebaseService.getCommunityNotes();
+      if (dbNotes && dbNotes.length > 0) {
+        // Merge fetched dynamic notes with the existing sample data so nothing is lost
+        const merged = [...dbNotes];
+        SAMPLE_NOTES.forEach(sample => {
+          if (!merged.some(m => m.title === sample.title)) {
+            merged.push(sample);
+          }
+        });
+        setActiveNotes(merged);
+        if (merged.length > 0) {
+          setSelectedNoteId(merged[0].id);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not sync with Firestore:', e);
+    } finally {
+      setIsSyncingFromDb(false);
+    }
+  };
+
+  useEffect(() => {
+    syncWithFirestore();
+  }, []);
 
   // Selected Note detail
   const selectedNote = useMemo(() => {
@@ -77,19 +108,27 @@ export default function CommunityNotes({ onContributeXP }: CommunityNotesProps) 
 
       if (response.ok) {
         const data = await response.json();
-        const newNote = {
-          id: `note_custom_${Date.now()}`,
+        
+        const notePayload = {
           subjectCode: uploadSubject,
           title: uploadTitle,
           author: 'You (Rahul RGPV)',
           authorYear: '1st Year Mech',
-          likes: 5,
-          downloads: 1,
           fileSize: '1.2 MB',
           fileType: uploadType as any,
           topicsCovered: data.topicsExtracted || ['Concept Mapped'],
           aiSummary: data.aiSummary || 'Analysis complete.',
-          flashcards: data.flashcards || [],
+          flashcards: data.flashcards || []
+        };
+
+        // Write directly to Firestore!
+        const savedNote = await firebaseService.uploadCommunityNote(notePayload);
+        
+        const newNote = savedNote || {
+          id: `note_custom_${Date.now()}`,
+          ...notePayload,
+          likes: 5,
+          downloads: 1,
           createdAt: 'Just Now'
         };
 

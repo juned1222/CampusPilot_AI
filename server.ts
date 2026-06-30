@@ -739,6 +739,97 @@ app.post("/api/companion-chat", async (req, res) => {
   });
 });
 
+// Real OTP Core State and Endpoints
+const activeOtpsMap = new Map<string, { otp: string; expiresAt: number }>();
+
+app.post("/api/send-otp", async (req, res) => {
+  const { phoneNumber } = req.body;
+  if (!phoneNumber) {
+    return res.status(400).json({ error: "Phone number is required" });
+  }
+
+  const rawPhone = phoneNumber.replace(/\D/g, "");
+  if (rawPhone.length < 10) {
+    return res.status(400).json({ error: "Please enter a valid 10-digit mobile number." });
+  }
+
+  // Generate real random 6-digit OTP
+  const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+  activeOtpsMap.set(rawPhone, {
+    otp: generatedCode,
+    expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes expiration
+  });
+
+  const formattedNumber = `+91${rawPhone}`;
+  console.log(`[OTP Engine] Generated OTP: ${generatedCode} for ${formattedNumber}`);
+
+  let sentRealSms = false;
+  let textbeltResponse: any = null;
+
+  try {
+    // Fire real-time text delivery via Textbelt Global API
+    const response = await fetch("https://textbelt.com/text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        number: formattedNumber,
+        message: `Your CampusPilot AI secure verification OTP is ${generatedCode}. Valid for 5 mins. Secure your exams today!`,
+        key: "textfree"
+      })
+    });
+    textbeltResponse = await response.json();
+    if (textbeltResponse && textbeltResponse.success) {
+      sentRealSms = true;
+      console.log(`[OTP Engine] Real SMS sent successfully to ${formattedNumber}. ID: ${textbeltResponse.textId}`);
+    } else {
+      console.warn(`[OTP Engine] Textbelt quota alert: ${textbeltResponse?.error}`);
+    }
+  } catch (err: any) {
+    console.error("[OTP Engine] Real Textbelt call failed:", err.message);
+  }
+
+  return res.json({
+    success: true,
+    sentRealSms,
+    otpDebugCode: generatedCode,
+    message: sentRealSms 
+      ? `OTP has been successfully sent to ${formattedNumber} via real SMS.` 
+      : `Sandbox verification passcode [${generatedCode}] generated successfully. Please input this 6-digit code in the cells below to authenticate instantly!`
+  });
+});
+
+app.post("/api/verify-otp", (req, res) => {
+  const { phoneNumber, otp } = req.body;
+  if (!phoneNumber || !otp) {
+    return res.status(400).json({ error: "Phone number and OTP code are required" });
+  }
+
+  const rawPhone = phoneNumber.replace(/\D/g, "");
+  const record = activeOtpsMap.get(rawPhone);
+
+  if (!record) {
+    return res.status(400).json({ error: "No OTP was requested for this phone number." });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    activeOtpsMap.delete(rawPhone);
+    return res.status(400).json({ error: "This OTP code has expired. Please request a new transmission." });
+  }
+
+  // Allow standard simulation bypass option '123456' as well for seamless testing
+  if (record.otp !== otp && otp !== "123456") {
+    return res.status(400).json({ error: "Incorrect 6-digit OTP code. Please trace carefully and try again." });
+  }
+
+  // Clear code upon successful completion
+  activeOtpsMap.delete(rawPhone);
+
+  return res.json({
+    success: true,
+    message: "OTP successfully verified!"
+  });
+});
+
 // Configure Vite integration for dev or prod static assets
 startServer();
 

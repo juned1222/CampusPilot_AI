@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import DashboardOverview from './components/DashboardOverview';
@@ -17,9 +18,43 @@ import Predictor from './components/Predictor';
 import ContributionSystem from './components/ContributionSystem';
 import CompanionChatbot from './components/CompanionChatbot';
 import LoginPage from './components/LoginPage';
+import StudyPomodoro from './components/StudyPomodoro';
+import ComingSoonRoadmap from './components/ComingSoonRoadmap';
+import AdminPanel from './components/AdminPanel';
+import { firebaseService } from './lib/firebase';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('overview');
+  
+  // Judge Demo Mode State
+  const [isDemoModeEnabled, setIsDemoModeEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('campuspilot_demo_mode');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('campuspilot_demo_mode', String(isDemoModeEnabled));
+    } catch {}
+  }, [isDemoModeEnabled]);
+
+  // Support URL Hash & Path Based Secret Admin Access
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      const hash = window.location.hash;
+      const path = window.location.pathname;
+      if (hash.includes('admin') || path.includes('/admin')) {
+        setCurrentTab('admin');
+      }
+    };
+    checkAdminRoute();
+    window.addEventListener('hashchange', checkAdminRoute);
+    return () => window.removeEventListener('hashchange', checkAdminRoute);
+  }, []);
   
   // Dynamic light/dark theme preference state
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -84,8 +119,67 @@ export default function App() {
   const [selectedSubjectForViva, setSelectedSubjectForViva] = useState<string>('BT101');
   
   // XP & Gamification system state
-  const [userPoints, setUserPoints] = useState<number>(540);
-  const [unlockedBadgeIds, setUnlockedBadgeIds] = useState<string[]>(['b1']);
+  const [userPoints, setUserPoints] = useState<number>(() => {
+    try {
+      const p = localStorage.getItem('campuspilot_points');
+      return p ? Number(p) : 540;
+    } catch {
+      return 540;
+    }
+  });
+  const [unlockedBadgeIds, setUnlockedBadgeIds] = useState<string[]>(() => {
+    try {
+      const b = localStorage.getItem('campuspilot_badges');
+      return b ? JSON.parse(b) : ['b1'];
+    } catch {
+      return ['b1'];
+    }
+  });
+
+  // Pull dynamic dashboard values from Firestore on load
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    async function fetchOnlineProfile() {
+      const dbProfile = await firebaseService.getUserProfile(user!.email);
+      if (dbProfile) {
+        if (typeof dbProfile.points === 'number') {
+          setUserPoints(dbProfile.points);
+          try {
+            localStorage.setItem('campuspilot_points', String(dbProfile.points));
+          } catch {}
+        }
+        if (Array.isArray(dbProfile.unlockedBadgeIds)) {
+          setUnlockedBadgeIds(dbProfile.unlockedBadgeIds);
+          try {
+            localStorage.setItem('campuspilot_badges', JSON.stringify(dbProfile.unlockedBadgeIds));
+          } catch {}
+        }
+      }
+    }
+    
+    fetchOnlineProfile();
+  }, [user?.email]);
+
+  // Sync state changes to Firestore & local fallback
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    try {
+      localStorage.setItem('campuspilot_points', String(userPoints));
+      localStorage.setItem('campuspilot_badges', JSON.stringify(unlockedBadgeIds));
+    } catch {}
+
+    const timer = setTimeout(() => {
+      firebaseService.syncUserProfile(user.email, {
+        name: user.name,
+        points: userPoints,
+        unlockedBadgeIds
+      });
+    }, 1000); // Debounce synchronization requests to save write quotas
+
+    return () => clearTimeout(timer);
+  }, [userPoints, unlockedBadgeIds, user?.email, user?.name]);
 
   // Dynamic user leader rank calculator
   const userRank = useMemo(() => {
@@ -100,12 +194,16 @@ export default function App() {
     setUserPoints(prev => {
       const nextPoints = prev + pointsGranted;
       // Auto unlock badges on points threshold
-      if (nextPoints >= 600 && !unlockedBadgeIds.includes('b2')) {
-        setUnlockedBadgeIds(badgeList => [...badgeList, 'b2']);
-      }
-      if (nextPoints >= 800 && !unlockedBadgeIds.includes('b3')) {
-        setUnlockedBadgeIds(badgeList => [...badgeList, 'b3']);
-      }
+      setUnlockedBadgeIds(badgeList => {
+        let newList = [...badgeList];
+        if (nextPoints >= 600 && !newList.includes('b2')) {
+          newList.push('b2');
+        }
+        if (nextPoints >= 800 && !newList.includes('b3')) {
+          newList.push('b3');
+        }
+        return newList;
+      });
       return nextPoints;
     });
   };
@@ -113,6 +211,11 @@ export default function App() {
   if (!user) {
     return <LoginPage onLoginSuccess={handleLogin} />;
   }
+
+  // Judge Demo overrides to show premium student state
+  const displayPoints = isDemoModeEnabled ? 1480 : userPoints;
+  const displayRank = isDemoModeEnabled ? 1 : userRank;
+  const displayBadges = isDemoModeEnabled ? ['b1', 'b2', 'b3', 'b4', 'b5'] : unlockedBadgeIds;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500/30 selection:text-indigo-200 antialiased font-sans">
@@ -122,9 +225,9 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         setSelectedSubjectCode={setSelectedSubjectCode}
         setSelectedSubjectForViva={setSelectedSubjectForViva}
-        userPoints={userPoints}
-        userRank={userRank}
-        user={user}
+        userPoints={displayPoints}
+        userRank={displayRank}
+        user={isDemoModeEnabled ? { name: "Juned Khan", email: "junedshekhkhan@gmail.com", avatar: user.avatar } : user}
         onLogout={handleLogout}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -137,53 +240,80 @@ export default function App() {
 
         {/* Core Main Viewport Frame */}
         <main className="flex-1 px-4 py-6 sm:px-6 md:py-8 overflow-x-hidden">
-          {currentTab === 'overview' && (
-            <DashboardOverview
-              setCurrentTab={setCurrentTab}
-              setSelectedSubjectCode={setSelectedSubjectCode}
-              setSelectedSubjectForViva={setSelectedSubjectForViva}
-              userPoints={userPoints}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab}
+              initial={{ opacity: 0, x: 10, y: 0 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: -10, y: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full h-full"
+            >
+              {currentTab === 'overview' && (
+                <DashboardOverview
+                  setCurrentTab={setCurrentTab}
+                  setSelectedSubjectCode={setSelectedSubjectCode}
+                  setSelectedSubjectForViva={setSelectedSubjectForViva}
+                  userPoints={displayPoints}
+                  isDemoModeEnabled={isDemoModeEnabled}
+                />
+              )}
 
-          {currentTab === 'chatbot' && (
-            <CompanionChatbot onContributeXP={handleContributeXP} />
-          )}
+              {currentTab === 'chatbot' && (
+                <CompanionChatbot onContributeXP={handleContributeXP} />
+              )}
 
-          {currentTab === 'emergency' && <ExamEmergency />}
+              {currentTab === 'pomodoro' && (
+                <StudyPomodoro onContributeXP={handleContributeXP} />
+              )}
 
-          {currentTab === 'pyq' && (
-            <PYQIntelligence
-              selectedSubjectCode={selectedSubjectCode}
-              setSelectedSubjectCode={setSelectedSubjectCode}
-              onContributeXP={handleContributeXP}
-            />
-          )}
+              {currentTab === 'emergency' && <ExamEmergency />}
 
-          {currentTab === 'notes' && <CommunityNotes onContributeXP={handleContributeXP} />}
+              {currentTab === 'pyq' && (
+                <PYQIntelligence
+                  selectedSubjectCode={selectedSubjectCode}
+                  setSelectedSubjectCode={setSelectedSubjectCode}
+                  onContributeXP={handleContributeXP}
+                />
+              )}
 
-          {currentTab === 'viva' && (
-            <VivaPrep
-              selectedSubjectForViva={selectedSubjectForViva}
-              setSelectedSubjectForViva={setSelectedSubjectForViva}
-              onContributeXP={handleContributeXP}
-            />
-          )}
+              {currentTab === 'notes' && <CommunityNotes onContributeXP={handleContributeXP} />}
 
-          {currentTab === 'mock' && <MockGenerator />}
+              {currentTab === 'viva' && (
+                <VivaPrep
+                  selectedSubjectForViva={selectedSubjectForViva}
+                  setSelectedSubjectForViva={setSelectedSubjectForViva}
+                  onContributeXP={handleContributeXP}
+                />
+              )}
 
-          {currentTab === 'coding' && <CodingPlacement />}
+              {currentTab === 'mock' && <MockGenerator />}
 
-          {currentTab === 'predictor' && <Predictor />}
+              {currentTab === 'coding' && <CodingPlacement />}
 
-          {currentTab === 'contribution' && (
-            <ContributionSystem
-              userPoints={userPoints}
-              userRank={userRank}
-              onContributeXP={handleContributeXP}
-              unlockedBadgeIds={unlockedBadgeIds}
-            />
-          )}
+              {currentTab === 'predictor' && <Predictor />}
+
+              {currentTab === 'roadmap' && (
+                <ComingSoonRoadmap />
+              )}
+
+              {currentTab === 'admin' && (
+                <AdminPanel
+                  isDemoModeEnabled={isDemoModeEnabled}
+                  onToggleDemoMode={() => setIsDemoModeEnabled(!isDemoModeEnabled)}
+                />
+              )}
+
+              {currentTab === 'contribution' && (
+                <ContributionSystem
+                  userPoints={displayPoints}
+                  userRank={displayRank}
+                  onContributeXP={handleContributeXP}
+                  unlockedBadgeIds={displayBadges}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 
